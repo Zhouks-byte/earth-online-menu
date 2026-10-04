@@ -8,7 +8,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
-    --globe: clamp(220px, 34vmin, 430px);
+    --globe: clamp(440px, 68vmin, 860px);
     --bg-0: #05070d;
     --bg-1: #0d1117;
     --bg-3: #161c26;
@@ -66,33 +66,48 @@
   .eyebrow {
     display: inline-flex; align-items: center; gap: 12px;
     font-family: var(--mono); font-size: 11px; letter-spacing: .4em;
-    color: var(--text-3); text-transform: uppercase; margin-bottom: 14px;
+    color: #9aaac4; text-transform: uppercase; margin-bottom: 16px;
   }
   .eyebrow::before, .eyebrow::after {
-    content: ""; width: 30px; height: 1px; background: var(--line-strong);
+    content: ""; width: 34px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(102,228,255,.72));
+    box-shadow: 0 0 8px rgba(0,190,255,.28);
+  }
+  .eyebrow::after {
+    transform: rotate(180deg);
   }
   h1.title {
-    font-size: clamp(38px, 7vmin, 88px); font-weight: 900;
-    letter-spacing: .02em; line-height: 1;
-    background: linear-gradient(180deg, var(--accent-hi) 0%, var(--accent) 46%, var(--accent-deep) 100%);
+    font-size: clamp(42px, 7.5vmin, 96px); font-weight: 900;
+    letter-spacing: .055em; line-height: 1;
+    background: linear-gradient(105deg, #c8f7ff 0%, #51dcff 24%, #00a9e8 48%, #a5f1ff 70%, #48c7f5 100%);
+    background-size: 220% 100%;
     -webkit-background-clip: text; background-clip: text; color: transparent;
-    filter: drop-shadow(0 0 22px rgba(0,190,255,.4));
+    filter: drop-shadow(0 0 12px rgba(0,190,255,.36)) drop-shadow(0 0 30px rgba(0,115,220,.2));
+    animation: titleShimmer 9s ease-in-out infinite;
+    white-space: nowrap;
+  }
+  @keyframes titleShimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
   .title .on {
-    color: var(--text-1);
-    background: none; -webkit-background-clip: initial; background-clip: initial;
-    text-shadow: 0 0 14px rgba(255,255,255,.25);
+    display: inline-block; margin-left: .08em;
+    background: linear-gradient(180deg, #ffffff 4%, #d8f5ff 54%, #88c5e8 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(198,239,255,.3));
   }
   .rule {
     width: clamp(120px, 26vmin, 300px); height: 1px; margin: 16px auto 0;
-    background: linear-gradient(90deg, transparent, var(--accent-hi) 50%, transparent);
+    background: linear-gradient(90deg, transparent, rgba(102,228,255,.9) 50%, transparent);
+    box-shadow: 0 0 10px rgba(0,190,255,.48);
   }
 
   /* ---------- 中部：地球 + 菜单 ---------- */
   .main {
-    width: 100%; max-width: 1180px;
+    width: 100%; max-width: 1540px;
     display: grid; grid-template-columns: 1fr 340px;
-    gap: clamp(20px, 6vw, 90px); align-items: center;
+    gap: clamp(24px, 4vw, 64px); align-items: center;
   }
 
   /* 地球 */
@@ -196,8 +211,11 @@
   #toast.show { opacity: 1; }
 
   @media (max-width: 820px) {
+    :root { --globe: clamp(300px, 48vmin, 440px); }
     .main { grid-template-columns: 1fr; justify-items: center; gap: 18px; }
     .menu { width: min(320px, 100%); }
+    h1.title { font-size: clamp(36px, 9vw, 64px); }
+    .eyebrow { font-size: 9px; letter-spacing: .28em; }
     .player, .server { top: 12px; }
     .player { left: 12px; } .server { right: 12px; }
     .foot { display: none; }
