@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>地球 ONLINE</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --globe: clamp(220px, 34vmin, 430px);
+    --bg-0: #05070d;
+    --bg-1: #0d1117;
+    --bg-3: #161c26;
+    --line: rgba(148,190,255,.16);
+    --line-strong: rgba(148,190,255,.32);
+    --text-1: #e6e6e6;
+    --text-3: #6b7280;
+    --accent: #00d4ff;
+    --accent-hi: #66e4ff;
+    --accent-deep: #0284c7;
+    --ok: #22c55e;
+    --font: "Segoe UI", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --mono: "Consolas", "SFMono-Regular", "Liberation Mono", monospace;
+  }
+
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    font-family: var(--font);
+    color: var(--text-1);
+    background: var(--bg-0);
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- 深空背景 ---------- */
+  .space { position: fixed; inset: 0; background:
+      radial-gradient(130% 90% at 50% 8%, #121a2c 0%, #0a0f1c 48%, #05070d 100%); }
+  .space::after {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      radial-gradient(rgba(255,255,255,.7) 1px, transparent 1px),
+      radial-gradient(rgba(255,255,255,.35) 1px, transparent 1px);
+    background-size: 240px 240px, 380px 380px;
+    background-position: 0 0, 90px 120px;
+    opacity: .45;
+    animation: drift 160s linear infinite;
+  }
+  .neb { position: absolute; border-radius: 50%; filter: blur(70px); mix-blend-mode: screen; }
+  .neb-a { width: 46vw; height: 34vw; left: -14vw; top: -10vw;
+    background: radial-gradient(circle, rgba(90,140,255,.32), transparent 70%); }
+  .neb-b { width: 40vw; height: 30vw; right: -12vw; bottom: -14vw;
+    background: radial-gradient(circle, rgba(120,190,255,.26), transparent 70%); }
+  @keyframes drift { to { background-position: -240px 0, -380px 120px; } }
+
+  /* ---------- 舞台 ---------- */
+  .stage {
+    position: relative; z-index: 2; height: 100%;
+    display: grid; grid-template-rows: auto 1fr auto;
+    align-items: center; justify-items: center;
+    padding: clamp(16px, 3.5vh, 40px) clamp(18px, 4vw, 60px);
+  }
+
+  /* ---------- 顶部：标题 ---------- */
+  .masthead { text-align: center; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .4em;
+    color: var(--text-3); text-transform: uppercase; margin-bottom: 14px;
+  }
+  .eyebrow::before, .eyebrow::after {
+    content: ""; width: 30px; height: 1px; background: var(--line-strong);
+  }
+  h1.title {
+    font-size: clamp(38px, 7vmin, 88px); font-weight: 900;
+    letter-spacing: .02em; line-height: 1;
+    background: linear-gradient(180deg, var(--accent-hi) 0%, var(--accent) 46%, var(--accent-deep) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(0,190,255,.4));
+  }
+  .title .on {
+    color: var(--text-1);
+    background: none; -webkit-background-clip: initial; background-clip: initial;
+    text-shadow: 0 0 14px rgba(255,255,255,.25);
+  }
+  .rule {
+    width: clamp(120px, 26vmin, 300px); height: 1px; margin: 16px auto 0;
+    background: linear-gradient(90deg, transparent, var(--accent-hi) 50%, transparent);
+  }
+
+  /* ---------- 中部：地球 + 菜单 ---------- */
+  .main {
+    width: 100%; max-width: 1180px;
+    display: grid; grid-template-columns: 1fr 340px;
+    gap: clamp(20px, 6vw, 90px); align-items: center;
+  }
+
+  /* 地球 */
+  .globe-wrap {
+    position: relative; justify-self: center;
+    width: var(--globe); height: var(--globe);
+  }
+  .earth { position: relative; width: 100%; height: 100%; }
+  #earthGl {
+    position: absolute; left: -40%; top: -40%; width: 180%; height: 180%;
+    display: block; pointer-events: none;
+  }
+  .earth-loading {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    gap: 10px; color: #9fc3f0; font-size: 13px; letter-spacing: .15em;
+    opacity: 0; transition: opacity .4s ease; pointer-events: none;
+  }
+  .earth-loading.show { opacity: 1; }
+  .spinner {
+    width: 15px; height: 15px; border: 2px solid rgba(160,200,255,.3);
+    border-top-color: #bfe0ff; border-radius: 50%; animation: spin360 1s linear infinite;
+  }
+  @keyframes spin360 { to { transform: rotate(360deg); } }
+  /* 菜单 */
+  .menu { display: flex; flex-direction: column; gap: 14px; }
+  .menu .cap {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .34em;
+    color: var(--text-3); text-transform: uppercase; margin-bottom: 2px;
+  }
+  .mbtn {
+    position: relative; display: flex; align-items: center; gap: 14px;
+    padding: 15px 22px; border-radius: 6px; cursor: pointer;
+    color: var(--text-1); background: transparent;
+    border: 1px solid var(--line); transition: all .18s ease-out;
+    font-family: var(--font); font-size: 16px; font-weight: 600; letter-spacing: .18em;
+    text-align: left;
+  }
+  .mbtn .idx { font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: 0; }
+  .mbtn:hover { border-color: var(--line-strong); transform: translateX(4px); }
+  .mbtn:hover .idx { color: var(--accent-hi); }
+  .mbtn.primary {
+    color: #06121a;
+    background: linear-gradient(135deg, var(--accent-hi), var(--accent));
+    border-color: transparent;
+    box-shadow: 0 10px 30px rgba(0,180,255,.35);
+  }
+  .mbtn.primary .idx { color: #0a2e38; font-weight: 700; }
+  .mbtn.primary .arrow { color: #0a2e38; }
+  .mbtn.primary:hover { transform: translateX(4px); filter: brightness(1.06); }
+  .mbtn .arrow { margin-left: auto; color: var(--text-3); transition: all .18s; }
+  .mbtn:hover .arrow { color: var(--accent-hi); transform: translateX(3px); }
+  .mbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- 四周信息 ---------- */
+  .side-info { position: fixed; inset: 0; pointer-events: none; z-index: 3; font-size: 12px; color: #a6b4cf; }
+  .player {
+    position: absolute; left: 24px; top: 24px;
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 16px 9px 9px; border: 1px solid var(--line); border-radius: 30px;
+    background: var(--bg-1); pointer-events: auto;
+  }
+  .player .ava {
+    width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex: none;
+    border: 1px solid var(--line-strong); background: var(--bg-3);
+  }
+  .player .ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .player b { color: var(--text-1); font-weight: 600; }
+  .player .tag { font-family: var(--mono); color: var(--text-3); letter-spacing: .08em; }
+
+  .server {
+    position: absolute; right: 24px; top: 24px; text-align: right;
+    padding: 9px 16px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg-1); pointer-events: auto;
+  }
+  .server .st { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; color: var(--text-1); }
+  .server .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok);
+    box-shadow: 0 0 8px var(--ok); animation: blink 2.2s steps(2,start) infinite; }
+  .server .sub { margin-top: 3px; font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: .1em; }
+  @keyframes blink { 0%,53% { opacity: 1; } 54%,100% { opacity: .28; } }
+
+  .foot {
+    position: absolute; left: 0; right: 0; bottom: 22px;
+    display: flex; justify-content: space-between; padding: 0 30px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--text-3);
+  }
+  .foot .sep { color: var(--line-strong); }
+
+  /* ---------- 入场动画 ---------- */
+  .reveal { opacity: 0; transform: translateY(14px); animation: rise .7s cubic-bezier(.22,.61,.36,1) forwards; }
+  .reveal:nth-child(1){ animation-delay:.05s } .reveal:nth-child(2){ animation-delay:.14s }
+  .reveal:nth-child(3){ animation-delay:.26s } .reveal:nth-child(4){ animation-delay:.4s }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  /* ---------- 提示浮层 ---------- */
+  #toast {
+    position: fixed; left: 50%; bottom: 78px; transform: translateX(-50%);
+    padding: 10px 20px; border-radius: 6px; border: 1px solid var(--line-strong);
+    background: var(--bg-1); color: var(--text-1); font-size: 13px; letter-spacing: .1em;
+    opacity: 0; pointer-events: none; transition: opacity .25s ease; z-index: 5;
+  }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 820px) {
+    .main { grid-template-columns: 1fr; justify-items: center; gap: 18px; }
+    .menu { width: min(320px, 100%); }
+    .player, .server { top: 12px; }
+    .player { left: 12px; } .server { right: 12px; }
+    .foot { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="space"><div class="neb neb-a"></div><div class="neb neb-b"></div></div>
+
+  <div class="stage">
+    <!-- 顶部标题 -->
+    <header class="masthead reveal">
+      <div class="eyebrow">SIRIUS · 开放世界生存协议</div>
+      <h1 class="title">地球<span class="on">ONLINE</span></h1>
+      <div class="rule"></div>
+    </header>
+
+    <!-- 中部：地球 + 菜单 -->
+    <main class="main">
+      <div class="globe-wrap reveal">
+        <div class="earth">
+          <canvas id="earthGl"></canvas>
+          <div class="earth-loading" id="earthLoading">
+            <span class="spinner"></span><span>正在生成地表…</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="menu reveal" aria-label="主菜单">
+        <div class="cap">Selection</div>
+        <button class="mbtn primary" data-act="start"><span class="idx">01</span>开始游戏<span class="arrow">→</span></button>
+        <button class="mbtn" data-act="settings"><span class="idx">02</span>设置<span class="arrow">→</span></button>
+        <button class="mbtn" data-act="exit"><span class="idx">03</span>退出<span class="arrow">→</span></button>
+      </nav>
+    </main>
+  </div>
+
+  <!-- 四周信息 -->
+  <div class="side-info">
+    <div class="player">
+      <span class="ava"><img src="assets/avatar.jpg" alt="头像"></span>
+      <span><span class="tag">当前玩家</span> · <b>芝士发疯</b></span>
+    </div>
+
+    <div class="server">
+      <div class="st"><span class="dot"></span>全球在线 · 中国-河北区</div>
+      <div class="sub">部署正常 · PING 12ms</div>
+    </div>
+
+    <div class="foot">
+      <span>VER 1.0.0 <span class="sep">/</span> Build 2026.09.05</span>
+      <span>EARTH ONLINE <span class="sep">©</span> SIRIUS STUDIO</span>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="assets/three.min.js"></script>
+  <script>
+    (function () {
+      // WebGL 能力检测
+      var canvas = document.getElementById('earthGl');
+      var loadingEl = document.getElementById('earthLoading');
+      loadingEl.classList.add('show');
+
+      function init() {
+        // The larger canvas leaves room for both orbital paths without shrinking the Earth.
+        function size() {
+          var r = canvas.getBoundingClientRect();
+          return { w: Math.max(r.width, 10), h: Math.max(r.height, 10) };
+        }
+        var s = size();
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        var renderer = new THREE.WebGLRenderer({
+          canvas: canvas,
+          antialias: true,
+          alpha: true
+        });
+        renderer.setPixelRatio(dpr);
+        renderer.setSize(s.w, s.h, false);
+        renderer.outputEncoding = THREE.sRGBEncoding;
+
+        var scene = new THREE.Scene();
+        // 加宽视场角，确保整颗地球 + 大气始终完整位于取景框内
+        var camera = new THREE.PerspectiveCamera(48, s.w / s.h, 0.1, 300);
+        camera.position.set(0, 0, 3.9);
+
+        var loader = new THREE.TextureLoader();
+        var dayMap = loader.load('assets/earth-day-hi.jpg');
+        var bumpMap = loader.load('assets/earth-bump.jpg');
+        var specularMap = loader.load('assets/earth-specular.jpg');
+        var cloudsMap = loader.load('assets/earth-clouds.png');
+        var nightMap = loader.load('assets/earth-night.jpg');
+        [dayMap, bumpMap, specularMap, cloudsMap, nightMap].forEach(function (t) {
+          t.anisotropy = 8;
+        });
+        dayMap.encoding = THREE.sRGBEncoding;
+        cloudsMap.encoding = THREE.sRGBEncoding;
+        nightMap.encoding = THREE.sRGBEncoding;
+
+        // ---------- 地球本体：高细分球体 + 高清贴图 + 凹凸/海洋高光 ----------
+        var earthGeo = new THREE.SphereGeometry(1, 176, 128);
+        var earthMat = new THREE.MeshPhongMaterial({
+          map: dayMap,
+          bumpMap: bumpMap,
+          bumpScale: 0.025,
+          specularMap: specularMap,
+          specular: new THREE.Color(0x526b83),
+          shininess: 18
+        });
+        var earth = new THREE.Mesh(earthGeo, earthMat);
+
+        // Night lights fade in only on the side facing away from the sun.
+        var nightGeo = new THREE.SphereGeometry(1.0015, 176, 128);
+        var nightMat = new THREE.ShaderMaterial({
+          uniforms: {
+            uNightMap: { value: nightMap },
+            uSunDir: { value: new THREE.Vector3() }
+          },
+          vertexShader: [
+            'varying vec2 vUv;',
+            'varying vec3 vWorldNormal;',
+            'void main(){',
+            '  vUv = uv;',
+            '  vWorldNormal = normalize(mat3(modelMatrix) * normal);',
+            '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+            '}'
+          ].join('\n'),
+          fragmentShader: [
+            'uniform sampler2D uNightMap;',
+            'uniform vec3 uSunDir;',
+            'varying vec2 vUv;',
+            'varying vec3 vWorldNormal;',
+            'void main(){',
+            '  float daySide = dot(normalize(vWorldNormal), normalize(uSunDir));',
+            '  float nightMask = 1.0 - smoothstep(-0.18, 0.12, daySide);',
+            '  vec3 lights = texture2D(uNightMap, vUv).rgb;',
+            '  gl_FragColor = vec4(lights * vec3(1.0, 0.72, 0.38), nightMask * 0.9);',
+            '}'
+          ].join('\n'),
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        var night = new THREE.Mesh(nightGeo, nightMat);
+
+        // 云层：略大、单独转速
+        var cloudGeo = new THREE.SphereGeometry(1.006, 96, 72);
+        var cloudMat = new THREE.MeshPhongMaterial({
+          map: cloudsMap,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          blending: THREE.NormalBlending
+        });
+        var clouds = new THREE.Mesh(cloudGeo, cloudMat);
+        // 云图就绪后淡入，避免阻塞地球本体显示
+        cloudsMap.addEventListener('load', function () {
+          cloudMat.opacity = 0.62;
+        });
+
+        // 大气辉光（像素参考图样式：浅蓝→青窄带，受光/晨昏侧更亮）
+        var atmoGeo = new THREE.SphereGeometry(1.09, 72, 56);
+        var atmoMat = new THREE.ShaderMaterial({
+          uniforms: {
+            uSunDir: { value: new THREE.Vector3(0.6, 0.32, 0.5).normalize() }
+          },
+          vertexShader: [
+            'varying vec3 vNormal;',
+            'varying vec3 vView;',
+            'varying vec3 vWorldNormal;',
+            'void main(){',
+            '  vec4 mv = modelViewMatrix * vec4(position, 1.0);',
+            '  vView = normalize(-mv.xyz);',
+            '  vNormal = normalize(normalMatrix * normal);',
+            '  vWorldNormal = normalize(mat3(modelMatrix) * normal);',
+            '  gl_Position = projectionMatrix * mv;',
+            '}'
+          ].join('\n'),
+          fragmentShader: [
+            'varying vec3 vNormal;',
+            'varying vec3 vView;',
+            'varying vec3 vWorldNormal;',
+            'uniform vec3 uSunDir;',
+            'void main(){',
+            '  vec3 N = normalize(vNormal);',
+            '  vec3 V = normalize(vView);',
+            '  float rim = 1.0 - abs(dot(N, V));',
+            '  rim = pow(rim, 3.2);',
+            '  // 受光/晨昏侧的辉光更亮，背光侧微弱保留',
+            '  float sunDot = max(dot(normalize(vWorldNormal), uSunDir), 0.0);',
+            '  float bake = 0.38 + 0.62 * sunDot;',
+            '  vec3 core = vec3(0.92, 0.99, 1.0);',     // 边缘核心浅蓝白
+            '  vec3 cyan = vec3(0.45, 0.85, 1.0);',     // 中间青
+            '  vec3 deep = vec3(0.05, 0.22, 0.72);',    // 远缘深蓝
+            '  float t = smoothstep(0.0, 1.0, rim);',
+            '  vec3 col = mix(deep, cyan, t);',
+            '  col = mix(col, core, smoothstep(0.45, 1.1, rim));',
+            '  col *= bake;',
+            '  gl_FragColor = vec4(col, rim * 0.8 * bake + 0.02);',
+            '}'
+          ].join('\n'),
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          side: THREE.BackSide,
+          depthWrite: false
+        });
+        var atmo = new THREE.Mesh(atmoGeo, atmoMat);
+
+        // 地球整体带 23.5° 轴倾角
+        var earthGroup = new THREE.Group();
+        earthGroup.rotation.z = -23.5 * Math.PI / 180;
+        earthGroup.add(earth);
+        earthGroup.add(night);
+        earthGroup.add(clouds);
+        earthGroup.add(atmo);
+        scene.add(earthGroup);
+
+        // ---------- 光照（受光侧清晰，主体亮面明显可辨） ----------
+        var sun = new THREE.DirectionalLight(0xffffff, 1.7);
+        sun.position.set(-4, 3.2, 6);
+        scene.add(sun);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.32));
+        // Keep atmospheric scattering and city lights aligned with the key light.
+        atmoMat.uniforms.uSunDir.value.copy(sun.position).normalize();
+        nightMat.uniforms.uSunDir.value.copy(sun.position).normalize();
+
+        // ---------- 远景星空（程序化点阵） ----------
+        var starsGeo = new THREE.BufferGeometry();
+        var COUNT = 1600, pos = new Float32Array(COUNT * 3), col = new Float32Array(COUNT * 3);
+        for (var i = 0; i < COUNT; i++) {
+          var r = 40 + Math.random() * 40;
+          var th = Math.random() * Math.PI * 2;
+          var ph = Math.acos(2 * Math.random() - 1);
+          pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+          pos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+          pos[i * 3 + 2] = r * Math.cos(ph);
+          var b = 0.35 + Math.random() * 0.65;
+          col[i * 3] = b; col[i * 3 + 1] = b; col[i * 3 + 2] = b;
+        }
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        starsGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        var starsMat = new THREE.PointsMaterial({
+          vertexColors: true, size: 0.16, transparent: true, opacity: 0.9
+        });
+        var stars = new THREE.Points(starsGeo, starsMat);
+        scene.add(stars);
+
+        // ---------- 两圈卫星轨道 ----------
+        var satellites = [];
+        function addSatellite(radius, tiltX, tiltZ, speed, phase, panelColor) {
+          var orbit = new THREE.Group();
+          orbit.rotation.set(tiltX, 0, tiltZ);
+          var orbitalMotion = new THREE.Group();
+          orbit.add(orbitalMotion);
+
+          var orbitPoints = [];
+          for (var i = 0; i < 129; i++) {
+            var angle = i / 128 * Math.PI * 2;
+            orbitPoints.push(new THREE.Vector3(
+              Math.cos(angle) * radius,
+              Math.sin(angle) * radius,
+              0
+            ));
+          }
+          var orbitGeometry = new THREE.BufferGeometry().setFromPoints(orbitPoints);
+          var orbitLine = new THREE.LineLoop(orbitGeometry, new THREE.LineBasicMaterial({
+            color: panelColor,
+            transparent: true,
+            opacity: 0.24,
+            depthWrite: false
+          }));
+          orbitalMotion.add(orbitLine);
+
+          var satellite = new THREE.Group();
+          satellite.position.set(Math.cos(phase) * radius, Math.sin(phase) * radius, 0);
+
+          var bus = new THREE.Mesh(
+            new THREE.BoxGeometry(0.065, 0.065, 0.065),
+            new THREE.MeshPhongMaterial({
+              color: 0xb78a4b,
+              specular: 0xffdca0,
+              shininess: 32
+            })
+          );
+          satellite.add(bus);
+
+          var panelMaterial = new THREE.MeshPhongMaterial({
+            color: panelColor,
+            emissive: panelColor,
+            emissiveIntensity: 0.12,
+            specular: 0x7dbbff,
+            shininess: 48
+          });
+          var gridMaterial = new THREE.MeshBasicMaterial({ color: 0x91cfff });
+          [-1, 1].forEach(function (side) {
+            var panel = new THREE.Group();
+            panel.position.x = side * 0.115;
+            panel.add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 0.008), panelMaterial));
+            for (var line = -1; line <= 1; line++) {
+              var horizontal = new THREE.Mesh(
+                new THREE.BoxGeometry(0.116, 0.002, 0.002),
+                gridMaterial
+              );
+              horizontal.position.set(0, line * 0.026, 0.005);
+              panel.add(horizontal);
+              var vertical = new THREE.Mesh(
+                new THREE.BoxGeometry(0.002, 0.086, 0.002),
+                gridMaterial
+              );
+              vertical.position.set(line * 0.03, 0, 0.005);
+              panel.add(vertical);
+            }
+            satellite.add(panel);
+          });
+
+          var antenna = new THREE.Mesh(
+            new THREE.ConeGeometry(0.025, 0.018, 20),
+            new THREE.MeshPhongMaterial({ color: 0xd8e8f2, specular: 0xffffff, shininess: 70 })
+          );
+          antenna.rotation.x = Math.PI / 2;
+          antenna.position.set(0, 0.045, 0.035);
+          satellite.add(antenna);
+
+          var antennaStem = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.002, 0.002, 0.035, 8),
+            new THREE.MeshBasicMaterial({ color: 0xd8e8f2 })
+          );
+          antennaStem.position.set(0, 0.025, 0.035);
+          satellite.add(antennaStem);
+
+          orbitalMotion.add(satellite);
+          scene.add(orbit);
+          satellites.push({ group: orbitalMotion, speed: speed });
+        }
+        addSatellite(1.22, 0.30, 0.12, 0.004, 0.45, 0x246ca8);
+        addSatellite(1.46, -0.38, 0.24, -0.0028, 2.4, 0x326ca0);
+
+        // ---------- 动画 ----------
+        function tick(time) {
+          requestAnimationFrame(tick);
+          earth.rotation.y += 0.0022;        // 地表自转
+          night.rotation.y += 0.0022;       // 夜景与地表同步
+          clouds.rotation.y += 0.0034;       // 云层略快
+          for (var k = 0; k < satellites.length; k++) {
+            satellites[k].group.rotation.z += satellites[k].speed;
+          }
+          stars.rotation.y += 0.00012;       // 星空缓慢转动
+          // 相机固定居中，确保整颗地球始终完整显示
+          camera.position.set(0, 0, 3.9);
+          camera.lookAt(0, 0, 0);
+          renderer.render(scene, camera);
+        }
+        requestAnimationFrame(tick);
+
+        // ---------- 缩放适配 ----------
+        window.addEventListener('resize', function () {
+          var s2 = size();
+          camera.aspect = s2.w / s2.h;
+          camera.updateProjectionMatrix();
+          renderer.setPixelRatio(dpr);
+          renderer.setSize(s2.w, s2.h, false);
+        });
+
+        // 基础纹理（地表/凹凸/高光）就绪即显示地球，云图不阻塞
+        var hideLoading = function () {
+          clearTimeout(loadTimer);
+          setTimeout(function () { loadingEl.classList.remove('show'); }, 250);
+        };
+        var baseLoaded = 0;
+        var onBase = function () {
+          baseLoaded++;
+          if (baseLoaded >= 3) hideLoading();
+        };
+        [dayMap, bumpMap, specularMap].forEach(function (t) {
+          t.addEventListener('load', onBase);
+          t.addEventListener('error', onBase);   // 某张失败也不卡加载，继续显示
+        });
+        // 硬超时兜底：最多等 3 秒必定显示
+        var loadTimer = setTimeout(hideLoading, 3000);
+      }
+
+      if (window.THREE && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))) {
+        init();
+      } else {
+        loadingEl.textContent = '当前环境不支持 3D 渲染（需要 WebGL）';
+      }
+    })();
+
+    // ---------- 菜单交互：编号选中 + 键盘 + 执行 ----------
+    (function () {
+      var btns = Array.prototype.slice.call(document.querySelectorAll('.mbtn'));
+      var toast = document.getElementById('toast');
+      var toastTimer = null;
+
+      function select(btn) {
+        btns.forEach(function (b) { b.classList.remove('primary'); });
+        btn.classList.add('primary');
+      }
+      function fire(btn) {
+        var act = btn.getAttribute('data-act');
+        var msgs = { start: '正在进入游戏…', settings: '设置功能建设中', exit: '即将退出游戏' };
+        if (act === 'exit') { try { window.close(); } catch (e) {} }
+        toast.textContent = msgs[act] || '';
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 1800);
+      }
+      btns.forEach(function (b, i) {
+        b.addEventListener('click', function () { select(b); fire(b); });
+      });
+      // 键盘上下选择 + 回车执行
+      var idx = 0;
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          idx = e.key === 'ArrowDown' ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+          select(btns[idx]);
+        } else if (e.key === 'Enter') {
+          fire(btns[idx]);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
