@@ -369,8 +369,9 @@
         var atmo = new THREE.Mesh(atmoGeo, atmoMat);
 
         // 地球整体带 23.5° 轴倾角
+        var axialTilt = -23.5 * Math.PI / 180;
         var earthGroup = new THREE.Group();
-        earthGroup.rotation.z = -23.5 * Math.PI / 180;
+        earthGroup.rotation.z = axialTilt;
         earthGroup.add(earth);
         earthGroup.add(clouds);
         earthGroup.add(atmo);
@@ -401,9 +402,9 @@
 
         // ---------- 单圈卫星轨道 ----------
         var satellites = [];
-        function addSatellite(radius, tiltX, tiltZ, speed, phase, panelColor) {
+        function addSatellite(radius, speed, phase, panelColor) {
           var orbit = new THREE.Group();
-          orbit.rotation.set(tiltX, 0, tiltZ);
+          orbit.rotation.z = axialTilt;
           var orbitalMotion = new THREE.Group();
           orbit.add(orbitalMotion);
 
@@ -412,8 +413,8 @@
             var angle = i / 128 * Math.PI * 2;
             orbitPoints.push(new THREE.Vector3(
               Math.cos(angle) * radius,
-              Math.sin(angle) * radius,
-              0
+              0,
+              Math.sin(angle) * radius
             ));
           }
           var orbitGeometry = new THREE.BufferGeometry().setFromPoints(orbitPoints);
@@ -426,7 +427,7 @@
           orbitalMotion.add(orbitLine);
 
           var satellite = new THREE.Group();
-          satellite.position.set(Math.cos(phase) * radius, Math.sin(phase) * radius, 0);
+          satellite.position.set(Math.cos(phase) * radius, 0, Math.sin(phase) * radius);
 
           var bus = new THREE.Mesh(
             new THREE.BoxGeometry(0.065, 0.065, 0.065),
@@ -486,7 +487,7 @@
           scene.add(orbit);
           satellites.push({ group: orbitalMotion, speed: speed });
         }
-        addSatellite(1.32, 0.30, 0.12, 0.004, 0.45, 0x246ca8);
+        addSatellite(1.32, 0.004, 0.45, 0x246ca8);
 
         // ---------- 动画 ----------
         function tick(time) {
@@ -494,7 +495,7 @@
           earth.rotation.y += 0.0022;        // 地表自转
           clouds.rotation.y += 0.0034;       // 云层略快
           for (var k = 0; k < satellites.length; k++) {
-            satellites[k].group.rotation.z += satellites[k].speed;
+            satellites[k].group.rotation.y += satellites[k].speed;
           }
           stars.rotation.y += 0.00012;       // 星空缓慢转动
           // 相机固定居中，确保整颗地球始终完整显示
