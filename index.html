@@ -372,8 +372,88 @@
         var axialTilt = -23.5 * Math.PI / 180;
         var earthGroup = new THREE.Group();
         earthGroup.rotation.z = axialTilt;
-        earthGroup.add(earth);
-        earthGroup.add(clouds);
+        var earthSpin = new THREE.Group();
+        var hebaiLongitude = 115.5 * Math.PI / 180;
+        var hebaiLatitude = 38 * Math.PI / 180;
+        earthSpin.rotation.y = -hebaiLongitude - Math.PI / 2;
+        earthSpin.add(earth);
+        earthSpin.add(clouds);
+
+        var hebaiNormal = new THREE.Vector3(
+          Math.cos(hebaiLatitude) * Math.cos(hebaiLongitude),
+          Math.sin(hebaiLatitude),
+          -Math.cos(hebaiLatitude) * Math.sin(hebaiLongitude)
+        );
+        var locationMarker = new THREE.Group();
+        locationMarker.position.copy(hebaiNormal).multiplyScalar(1.014);
+        locationMarker.quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 0, 1),
+          hebaiNormal
+        );
+
+        var markerCore = new THREE.Mesh(
+          new THREE.SphereGeometry(0.012, 20, 20),
+          new THREE.MeshBasicMaterial({ color: 0xffffff })
+        );
+        markerCore.position.z = 0.012;
+        locationMarker.add(markerCore);
+
+        var markerHalo = new THREE.Mesh(
+          new THREE.TorusGeometry(0.026, 0.003, 8, 40),
+          new THREE.MeshBasicMaterial({ color: 0x8ff4ff })
+        );
+        markerHalo.position.z = 0.01;
+        locationMarker.add(markerHalo);
+
+        var markerPulse = new THREE.Mesh(
+          new THREE.TorusGeometry(0.043, 0.002, 6, 40),
+          new THREE.MeshBasicMaterial({
+            color: 0x36dfff,
+            transparent: true,
+            opacity: 0.75
+          })
+        );
+        markerPulse.position.z = 0.009;
+        locationMarker.add(markerPulse);
+
+        var markerBeam = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.0015, 0.003, 0.045, 8),
+          new THREE.MeshBasicMaterial({ color: 0x9cf5ff })
+        );
+        markerBeam.position.z = 0.037;
+        markerBeam.rotation.x = Math.PI / 2;
+        locationMarker.add(markerBeam);
+
+        var labelCanvas = document.createElement('canvas');
+        labelCanvas.width = 320;
+        labelCanvas.height = 80;
+        var labelContext = labelCanvas.getContext('2d');
+        labelContext.fillStyle = 'rgba(5, 16, 31, 0.88)';
+        labelContext.strokeStyle = 'rgba(111, 226, 255, 0.8)';
+        labelContext.lineWidth = 3;
+        labelContext.beginPath();
+        labelContext.roundRect(2, 2, 316, 76, 18);
+        labelContext.fill();
+        labelContext.stroke();
+        labelContext.fillStyle = '#a9f3ff';
+        labelContext.font = '600 31px "Microsoft YaHei", sans-serif';
+        labelContext.textAlign = 'center';
+        labelContext.textBaseline = 'middle';
+        labelContext.fillText('河北 · 中国', 160, 40);
+
+        var labelTexture = new THREE.CanvasTexture(labelCanvas);
+        labelTexture.encoding = THREE.sRGBEncoding;
+        var locationLabel = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: labelTexture,
+          transparent: true,
+          depthWrite: false
+        }));
+        locationLabel.position.set(0.16, 0.09, 0.025);
+        locationLabel.scale.set(0.28, 0.07, 1);
+        locationMarker.add(locationLabel);
+
+        earthSpin.add(locationMarker);
+        earthGroup.add(earthSpin);
         earthGroup.add(atmo);
         scene.add(earthGroup);
 
@@ -492,8 +572,11 @@
         // ---------- 动画 ----------
         function tick(time) {
           requestAnimationFrame(tick);
-          earth.rotation.y += 0.0022;        // 地表自转
-          clouds.rotation.y += 0.0034;       // 云层略快
+          earthSpin.rotation.y += 0.0022;    // 地球和定位标记同步自转
+          clouds.rotation.y += 0.0012;       // 云层略快于地表
+          var pulse = 1 + Math.sin(time * 0.003) * 0.32;
+          markerPulse.scale.setScalar(pulse);
+          markerPulse.material.opacity = 0.5 + (1 - pulse) * 0.35;
           for (var k = 0; k < satellites.length; k++) {
             satellites[k].group.rotation.y += satellites[k].speed;
           }
