@@ -288,117 +288,59 @@
 
         var loader = new THREE.TextureLoader();
         var dayMap = loader.load('assets/earth-day-hi.jpg');
-        var bumpMap = loader.load('assets/earth-bump.jpg');
-        var specularMap = loader.load('assets/earth-specular.jpg');
         var cloudsMap = loader.load('assets/earth-clouds.png');
-        var nightMap = loader.load('assets/earth-night.jpg');
-        [dayMap, bumpMap, specularMap, cloudsMap, nightMap].forEach(function (t) {
+        [dayMap, cloudsMap].forEach(function (t) {
           t.anisotropy = 8;
         });
         dayMap.encoding = THREE.sRGBEncoding;
         cloudsMap.encoding = THREE.sRGBEncoding;
-        nightMap.encoding = THREE.sRGBEncoding;
 
-        // ---------- 地球本体：高细分球体 + 高清贴图 + 凹凸/海洋高光 ----------
+        // Use the albedo texture directly so the Earth is not shaped by directional sunlight.
         var earthGeo = new THREE.SphereGeometry(1, 176, 128);
-        var earthMat = new THREE.MeshPhongMaterial({
-          map: dayMap,
-          bumpMap: bumpMap,
-          bumpScale: 0.025,
-          specularMap: specularMap,
-          specular: new THREE.Color(0x526b83),
-          shininess: 18
+        var earthMat = new THREE.MeshBasicMaterial({
+          map: dayMap
         });
         var earth = new THREE.Mesh(earthGeo, earthMat);
 
-        // Night lights fade in only on the side facing away from the sun.
-        var nightGeo = new THREE.SphereGeometry(1.0015, 176, 128);
-        var nightMat = new THREE.ShaderMaterial({
-          uniforms: {
-            uNightMap: { value: nightMap },
-            uSunDir: { value: new THREE.Vector3() }
-          },
-          vertexShader: [
-            'varying vec2 vUv;',
-            'varying vec3 vWorldNormal;',
-            'void main(){',
-            '  vUv = uv;',
-            '  vWorldNormal = normalize(mat3(modelMatrix) * normal);',
-            '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
-            '}'
-          ].join('\n'),
-          fragmentShader: [
-            'uniform sampler2D uNightMap;',
-            'uniform vec3 uSunDir;',
-            'varying vec2 vUv;',
-            'varying vec3 vWorldNormal;',
-            'void main(){',
-            '  float daySide = dot(normalize(vWorldNormal), normalize(uSunDir));',
-            '  float nightMask = 1.0 - smoothstep(-0.18, 0.12, daySide);',
-            '  vec3 lights = texture2D(uNightMap, vUv).rgb;',
-            '  gl_FragColor = vec4(lights * vec3(1.0, 0.72, 0.38), nightMask * 0.9);',
-            '}'
-          ].join('\n'),
-          transparent: true,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
-        });
-        var night = new THREE.Mesh(nightGeo, nightMat);
-
-        // 云层：略大、单独转速
+        // The cloud texture has transparency and remains independently animated.
         var cloudGeo = new THREE.SphereGeometry(1.006, 96, 72);
-        var cloudMat = new THREE.MeshPhongMaterial({
+        var cloudMat = new THREE.MeshBasicMaterial({
           map: cloudsMap,
           transparent: true,
-          opacity: 0,
+          opacity: 0.62,
           depthWrite: false,
           blending: THREE.NormalBlending
         });
         var clouds = new THREE.Mesh(cloudGeo, cloudMat);
-        // 云图就绪后淡入，避免阻塞地球本体显示
-        cloudsMap.addEventListener('load', function () {
-          cloudMat.opacity = 0.62;
-        });
 
-        // 大气辉光（像素参考图样式：浅蓝→青窄带，受光/晨昏侧更亮）
+        // Subtle atmospheric rim without a directional-light gradient.
         var atmoGeo = new THREE.SphereGeometry(1.09, 72, 56);
         var atmoMat = new THREE.ShaderMaterial({
-          uniforms: {
-            uSunDir: { value: new THREE.Vector3(0.6, 0.32, 0.5).normalize() }
-          },
           vertexShader: [
             'varying vec3 vNormal;',
             'varying vec3 vView;',
-            'varying vec3 vWorldNormal;',
             'void main(){',
             '  vec4 mv = modelViewMatrix * vec4(position, 1.0);',
             '  vView = normalize(-mv.xyz);',
             '  vNormal = normalize(normalMatrix * normal);',
-            '  vWorldNormal = normalize(mat3(modelMatrix) * normal);',
             '  gl_Position = projectionMatrix * mv;',
             '}'
           ].join('\n'),
           fragmentShader: [
             'varying vec3 vNormal;',
             'varying vec3 vView;',
-            'varying vec3 vWorldNormal;',
-            'uniform vec3 uSunDir;',
             'void main(){',
             '  vec3 N = normalize(vNormal);',
             '  vec3 V = normalize(vView);',
             '  float rim = 1.0 - abs(dot(N, V));',
             '  rim = pow(rim, 3.2);',
-            '  // 受光/晨昏侧的辉光更亮，背光侧微弱保留',
-            '  float sunDot = max(dot(normalize(vWorldNormal), uSunDir), 0.0);',
-            '  float bake = 0.38 + 0.62 * sunDot;',
             '  vec3 core = vec3(0.92, 0.99, 1.0);',     // 边缘核心浅蓝白
             '  vec3 cyan = vec3(0.45, 0.85, 1.0);',     // 中间青
             '  vec3 deep = vec3(0.05, 0.22, 0.72);',    // 远缘深蓝
             '  float t = smoothstep(0.0, 1.0, rim);',
             '  vec3 col = mix(deep, cyan, t);',
             '  col = mix(col, core, smoothstep(0.45, 1.1, rim));',
-            '  col *= bake;',
-            '  gl_FragColor = vec4(col, rim * 0.8 * bake + 0.02);',
+            '  gl_FragColor = vec4(col, rim * 0.55 + 0.01);',
             '}'
           ].join('\n'),
           blending: THREE.AdditiveBlending,
@@ -412,19 +354,11 @@
         var earthGroup = new THREE.Group();
         earthGroup.rotation.z = -23.5 * Math.PI / 180;
         earthGroup.add(earth);
-        earthGroup.add(night);
         earthGroup.add(clouds);
         earthGroup.add(atmo);
         scene.add(earthGroup);
 
-        // ---------- 光照（受光侧清晰，主体亮面明显可辨） ----------
-        var sun = new THREE.DirectionalLight(0xffffff, 1.7);
-        sun.position.set(-4, 3.2, 6);
-        scene.add(sun);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.32));
-        // Keep atmospheric scattering and city lights aligned with the key light.
-        atmoMat.uniforms.uSunDir.value.copy(sun.position).normalize();
-        nightMat.uniforms.uSunDir.value.copy(sun.position).normalize();
+        scene.add(new THREE.AmbientLight(0xffffff, 1));
 
         // ---------- 远景星空（程序化点阵） ----------
         var starsGeo = new THREE.BufferGeometry();
@@ -447,7 +381,7 @@
         var stars = new THREE.Points(starsGeo, starsMat);
         scene.add(stars);
 
-        // ---------- 两圈卫星轨道 ----------
+        // ---------- 单圈卫星轨道 ----------
         var satellites = [];
         function addSatellite(radius, tiltX, tiltZ, speed, phase, panelColor) {
           var orbit = new THREE.Group();
@@ -534,14 +468,12 @@
           scene.add(orbit);
           satellites.push({ group: orbitalMotion, speed: speed });
         }
-        addSatellite(1.22, 0.30, 0.12, 0.004, 0.45, 0x246ca8);
-        addSatellite(1.46, -0.38, 0.24, -0.0028, 2.4, 0x326ca0);
+        addSatellite(1.32, 0.30, 0.12, 0.004, 0.45, 0x246ca8);
 
         // ---------- 动画 ----------
         function tick(time) {
           requestAnimationFrame(tick);
           earth.rotation.y += 0.0022;        // 地表自转
-          night.rotation.y += 0.0022;       // 夜景与地表同步
           clouds.rotation.y += 0.0034;       // 云层略快
           for (var k = 0; k < satellites.length; k++) {
             satellites[k].group.rotation.z += satellites[k].speed;
@@ -563,7 +495,7 @@
           renderer.setSize(s2.w, s2.h, false);
         });
 
-        // 基础纹理（地表/凹凸/高光）就绪即显示地球，云图不阻塞
+        // Show the Earth as soon as its surface texture loads; clouds do not block it.
         var hideLoading = function () {
           clearTimeout(loadTimer);
           setTimeout(function () { loadingEl.classList.remove('show'); }, 250);
@@ -571,12 +503,10 @@
         var baseLoaded = 0;
         var onBase = function () {
           baseLoaded++;
-          if (baseLoaded >= 3) hideLoading();
+          if (baseLoaded >= 1) hideLoading();
         };
-        [dayMap, bumpMap, specularMap].forEach(function (t) {
-          t.addEventListener('load', onBase);
-          t.addEventListener('error', onBase);   // 某张失败也不卡加载，继续显示
-        });
+        dayMap.addEventListener('load', onBase);
+        dayMap.addEventListener('error', onBase);
         // 硬超时兜底：最多等 3 秒必定显示
         var loadTimer = setTimeout(hideLoading, 3000);
       }
